@@ -17,6 +17,7 @@ const liveSettingsSchema = {
     liveOmit: { type: "boolean", title: "Live omit" },
   },
 };
+const nodeRedData = [0, 1, 2];
 const themes = {
   default: {
     stylesheet:
@@ -270,6 +271,21 @@ function ThemeSelector({ theme, select }) {
   );
 }
 
+function NodeRedSelector({ data, select }) {
+  const dataSchema = {
+    type: "string",
+    enum: Object.keys(nodeRedData),
+  };
+  return (
+    <Form
+      schema={dataSchema}
+      formData={data}
+      onChange={({ formData }) => select(formData, themes[formData])}>
+      <div />
+    </Form>
+  );
+}
+
 class CopyLink extends Component {
   onCopyClick = event => {
     this.input.select();
@@ -319,6 +335,7 @@ class App extends Component {
       validate,
       editor: "default",
       theme: "default",
+      nodeRedIndex: 0,
       liveSettings: {
         validate: true,
         disable: false,
@@ -340,6 +357,8 @@ class App extends Component {
     } else {
       this.load(samples.Simple);
     }
+
+    this.onNodeRedSelected(0);
   }
 
   shouldComponentUpdate(nextProps, nextState) {
@@ -378,6 +397,32 @@ class App extends Component {
     });
   };
 
+  onNodeRedSelected = async nodeRedIndex => {
+    const data = await fetch(
+      `http://localhost:1880/market/${nodeRedIndex}`
+    ).then(ret => ret.json());
+    const {
+      baseToken,
+      quoteToken,
+      baseTokenAddress,
+      quoteTokenAddress,
+      supportedOrderTypes,
+    } = data;
+    let nodeRedSample = samples["Node Red"];
+    nodeRedSample.formData = {
+      baseToken,
+      quoteToken,
+      baseTokenAddress,
+      quoteTokenAddress,
+    };
+    nodeRedSample.schema.properties.supportedOrderTypes.enum = supportedOrderTypes;
+    if (this.selector.state.current !== "Node Red") {
+      this.setState({ nodeRedIndex });
+    } else {
+      this.setState({ nodeRedIndex, ...nodeRedSample });
+    }
+  };
+
   setLiveSettings = ({ formData }) => this.setState({ liveSettings: formData });
 
   onFormDataChange = ({ formData }) =>
@@ -404,6 +449,7 @@ class App extends Component {
       liveSettings,
       validate,
       theme,
+      nodeRedIndex,
       editor,
       ArrayFieldTemplate,
       ObjectFieldTemplate,
@@ -413,10 +459,13 @@ class App extends Component {
     return (
       <div className="container-fluid">
         <div className="page-header">
-          <h1>react-jsonschema-form</h1>
+          <h1>UI-generator</h1>
           <div className="row">
             <div className="col-sm-8">
-              <Selector onSelected={this.load} />
+              <Selector
+                ref={ref => (this.selector = ref)}
+                onSelected={this.load}
+              />
             </div>
             <div className="col-sm-2">
               <Form
@@ -428,6 +477,10 @@ class App extends Component {
             </div>
             <div className="col-sm-2">
               <ThemeSelector theme={theme} select={this.onThemeSelected} />
+              <NodeRedSelector
+                data={nodeRedIndex}
+                select={this.onNodeRedSelected}
+              />
             </div>
           </div>
         </div>
